@@ -102,4 +102,30 @@ function findUninstaller(gameDir) {
   });
 }
 
-module.exports = { folderSize, driveInfo, whyNotTrash, findUninstaller };
+// Uninstalls an Xbox app game the way Windows' own Apps settings do.
+// family: the game's package family name, e.g. "Microsoft.Minecraft_8wekyb3d8bbwe".
+const REMOVE_PACKAGE = `
+$ErrorActionPreference = 'Stop'
+$found = @(Get-AppxPackage | Where-Object { $_.PackageFamilyName -eq $env:PACKAGE_FAMILY })
+if (-not $found.Count) { Write-Output 'not found'; exit 2 }
+$found | Remove-AppxPackage
+`;
+
+function removeAppPackage(family) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve({ ok: false, message: 'Only works on Windows.' });
+    execFile(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', REMOVE_PACKAGE],
+      { windowsHide: true, timeout: 10 * 60 * 1000, env: { ...process.env, PACKAGE_FAMILY: family } },
+      (err, out, errText) => {
+        if (!err) return resolve({ ok: true });
+        if (/not found/.test(out)) return resolve({ ok: false, message: 'Windows says this game is no longer installed.' });
+        const reason = String(errText || err.message).split(/\r?\n/).find((line) => line.trim()) || 'unknown problem';
+        resolve({ ok: false, message: `Windows couldn't uninstall it: ${reason.trim()}` });
+      }
+    );
+  });
+}
+
+module.exports = { folderSize, driveInfo, whyNotTrash, findUninstaller, removeAppPackage };

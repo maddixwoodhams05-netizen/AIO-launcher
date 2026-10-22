@@ -927,6 +927,8 @@ async function uninstallGame(game) {
   const size = game.size ? ` This frees up about ${formatSize(game.size)}.` : '';
   const messages = {
     steam: `Steam will open and ask you to confirm.${size}`,
+    ubisoft: `Ubisoft Connect will open and ask you to confirm.${size}`,
+    xbox: `Windows will uninstall it, the same as uninstalling from the Xbox app. It doesn't go to the Recycle Bin, but you can install it again from the Xbox app.${size}`,
     uninstaller: `The game's own uninstaller will open. Follow its steps to finish.${size}`,
     trash: `This game has no uninstaller, so its folder will be moved to the Recycle Bin:\n${info.folder}\n\nYou can get it back from the Recycle Bin if you change your mind.${size}`,
   };
@@ -945,9 +947,11 @@ async function uninstallGame(game) {
   body.style.whiteSpace = 'pre-line';
   if (!(await openModal(`Uninstall ${game.name}?`, body, 'Uninstall'))) return;
 
+  if (info.how === 'xbox') toast(`Uninstalling ${game.name}... this can take a minute.`);
   const result = await window.launcher.uninstall(game.exePath);
   if (!result.ok) return openModal("Couldn't uninstall", textBlock(result.message), 'OK', true);
   if (info.how === 'trash') toast(`${game.name} was moved to the Recycle Bin.`, 4000);
+  else if (info.how === 'xbox') toast(`${game.name} was uninstalled.`, 4000);
   else toast(`Once ${game.name} is uninstalled it will disappear from the launcher by itself.`, 6000);
 }
 

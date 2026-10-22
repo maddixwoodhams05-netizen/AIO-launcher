@@ -304,6 +304,8 @@ ipcMain.handle('game:uninstall-info', async (_event, exePath) => {
   const game = lib.games.find((g) => g.exePath === exePath);
   if (!game) return null;
   if (game.folder === library.STEAM && game.appId) return { how: 'steam' };
+  if (game.folder === 'Ubisoft' && game.storeId) return { how: 'ubisoft' };
+  if (game.folder === 'Xbox' && game.storeId) return { how: 'xbox' };
   const uninstaller = await storage.findUninstaller(game.gameDir);
   if (uninstaller) return { how: 'uninstaller' };
   // A store's games are never binned, or the store would think they are still there.
@@ -323,6 +325,23 @@ ipcMain.handle('game:uninstall', async (_event, exePath) => {
     shell.openExternal(`steam://uninstall/${game.appId}`);
     watchForRemoval(game);
     return { ok: true };
+  }
+
+  // Ubisoft Connect opens its own "Uninstall?" box.
+  if (game.folder === 'Ubisoft' && game.storeId) {
+    shell.openExternal(`uplay://uninstall/${game.storeId}`);
+    watchForRemoval(game);
+    return { ok: true };
+  }
+
+  // Xbox app games: Windows removes them, like uninstalling from Settings.
+  if (game.folder === 'Xbox' && game.storeId) {
+    const result = await storage.removeAppPackage(game.storeId);
+    if (result.ok) {
+      await rescan();
+      sendUpdate();
+    }
+    return result;
   }
 
   // The game's own uninstaller, from Windows' list of installed programs.
