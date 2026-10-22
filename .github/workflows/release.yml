@@ -8,6 +8,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Test build: a draft release only you can see. The launcher will not update to it.'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -52,7 +57,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: Game Launcher ${{ steps.version.outputs.tag }}
+          name: Maio Launcher ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
           # latest.yml and the .blockmap let the installed launcher update itself.
           files: |
@@ -61,3 +66,4 @@ jobs:
             dist/latest.yml
             dist/*.blockmap
           body_path: dist/release-notes.md
+          draft: ${{ inputs.draft == true }}
