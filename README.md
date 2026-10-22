@@ -39,7 +39,7 @@ Click **More info**, then **Run anyway**.
 - Colour themes, plus your own saved themes
 - Search from anywhere with Ctrl+F
 
-![Storage page](docs/storage.png)
+![Storage page](docs/storage-page.png)
 
 ![Settings and themes](docs/settings.png)
 
