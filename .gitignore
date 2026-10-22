@@ -1,0 +1,3 @@
+# Folders Git should not upload: downloaded libraries and built installers.
+node_modules/
+dist/
