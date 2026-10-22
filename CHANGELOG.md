@@ -7,9 +7,10 @@ Each release on GitHub shows its own part of this list.
 
 ### Changed
 - The launcher is now called **Maio Launcher** everywhere: the window, the
-  installer, shortcuts, downloads and the GitHub page. The project's name
-  wasn't updated in the earlier releases, so now they all match.
-- New MAIO icon, in the same style as before.
+  installer, shortcuts, downloads and the GitHub page (now MAIO-launcher; old
+  links still work). The project's name wasn't updated in the earlier
+  releases, so now they all match.
+- New icon: a purple M, in the same style as before.
 - Fresh screenshots on the GitHub page.
 
 Your library, playtime and settings carry over as they are.
