@@ -1,6 +1,6 @@
 {
   "name": "game-launcher",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "An all-in-one launcher for the games on your PC",
   "main": "src/main.js",
   "scripts": {
@@ -33,7 +33,7 @@
         "zip"
       ],
       "icon": "build/icon.png",
-      "artifactName": "Game Launcher ${version} portable.${ext}"
+      "artifactName": "Game-Launcher-${version}-portable.${ext}"
     },
     "nsis": {
       "oneClick": true,
@@ -43,7 +43,17 @@
       "shortcutName": "Game Launcher",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "artifactName": "Game Launcher Setup ${version}.${ext}"
-    }
+      "artifactName": "Game-Launcher-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "maddixwoodhams05-netizen",
+        "repo": "AIO-launcher"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }
