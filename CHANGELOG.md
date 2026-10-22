@@ -3,6 +3,16 @@
 Every version of the launcher and what changed in it, newest first.
 Each release on GitHub shows its own part of this list.
 
+## 1.1.1
+
+### Fixed
+- Xbox app games that aren't on Steam (like Minecraft Launcher or Roblox) now
+  get artwork: a cover and banner from the Microsoft Store, or the game's own
+  logo if the store has none. Games that got no art before look again by
+  themselves.
+- Playtime didn't show on Xbox game pages. Windows keeps Xbox games in a locked
+  folder, and not being able to read the game's icon stopped the page loading.
+
 ## 1.1.0
 
 ### New
