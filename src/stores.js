@@ -241,6 +241,28 @@ function listXboxPackages() {
 const plainName = (text) => (text && !/^ms-resource:/i.test(text) ? text.trim() : null);
 const packageName = (name) => name.replace(/^[^.]+\./, '').replace(/([a-z])([A-Z0-9])/g, '$1 $2');
 
+// Finds a picture named in the game's files. Windows keeps several sizes,
+// e.g. "Logo.png" is really "Logo.scale-200.png", so it takes the biggest.
+async function packageImage(dir, file) {
+  if (!file) return null;
+  const wanted = path.join(dir, file);
+  const folder = path.dirname(wanted);
+  const base = path.basename(wanted, path.extname(wanted)).toLowerCase();
+  const ext = path.extname(wanted).toLowerCase();
+  let best = null;
+  try {
+    for (const name of await fs.readdir(folder)) {
+      const lower = name.toLowerCase();
+      if (lower !== base + ext && !(lower.startsWith(`${base}.`) && lower.endsWith(ext))) continue;
+      const { size } = await fs.stat(path.join(folder, name));
+      if (!best || size > best.size) best = { file: path.join(folder, name), size };
+    }
+  } catch {
+    // Folder can't be read.
+  }
+  return best?.file || null;
+}
+
 async function findXboxGames({ xboxPackages = listXboxPackages } = {}) {
   const games = [];
   for (const pkg of await xboxPackages()) {
@@ -254,7 +276,13 @@ async function findXboxGames({ xboxPackages = listXboxPackages } = {}) {
     const exe = config.match(/<Executable\b[^>]*\bName\s*=\s*"([^"]+)"/i)?.[1];
     const exePath = exe ? path.join(pkg.dir, exe) : await mainExe(pkg.dir, name);
     if (!exePath) continue;
+    const visual = (attr) => config.match(new RegExp(`\\b${attr}\\s*=\\s*"([^"]+)"`, 'i'))?.[1];
+    const localArt = {
+      square: (await packageImage(pkg.dir, visual('Square480x480Logo'))) || (await packageImage(pkg.dir, visual('Square150x150Logo'))),
+      splash: await packageImage(pkg.dir, visual('SplashScreenImage')),
+    };
     games.push({
+      localArt,
       name,
       exePath,
       gameDir: pkg.dir,

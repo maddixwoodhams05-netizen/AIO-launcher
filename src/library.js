@@ -68,7 +68,7 @@ async function rescan(library) {
     const k = key(game.exePath);
     if (hidden.has(k) || found.has(k)) continue;
     const old = existing.get(k);
-    const fromStore = { gameDir: game.gameDir, folder: store, storeId: game.storeId, launchUrl: game.launchUrl || undefined };
+    const fromStore = { gameDir: game.gameDir, folder: store, storeId: game.storeId, launchUrl: game.launchUrl || undefined, localArt: game.localArt };
     if (game.size) fromStore.size = game.size;
     if (!old) {
       found.set(k, { ...game, ...fromStore, addedAt: Date.now() });

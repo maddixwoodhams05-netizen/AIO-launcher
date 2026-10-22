@@ -1,6 +1,7 @@
-// Finds artwork for a game from Steam.
+// Finds artwork for a game.
 // Steam installs are matched exactly through Steam's own files; other games
-// are looked up on the Steam store by name.
+// are looked up on the Steam store by name. Xbox app games get their art from
+// the Microsoft Store first, and the pictures inside the game's own files last.
 const fs = require('fs/promises');
 const path = require('path');
 const { steamRoot } = require('./steam');
@@ -175,9 +176,55 @@ async function headerImage(appId) {
   }
 }
 
+// ---------- Microsoft Store (for Xbox app games) ----------
+
+// The Microsoft Store's catalogue, looked up by the game's package name.
+// It lists a tall "Poster" (like Steam's covers), a wide "SuperHeroArt"
+// banner and a square "BoxArt".
+async function microsoftStoreArt(packageFamily) {
+  try {
+    const url = `https://displaycatalog.mp.microsoft.com/v7.0/products/lookup?alternateId=PackageFamilyName&value=${encodeURIComponent(packageFamily)}&market=US&languages=en-US&fieldsTemplate=details`;
+    const res = await fetch(url);
+    if (!res.ok) return {};
+    const json = await res.json();
+    const images = json?.Products?.[0]?.LocalizedProperties?.[0]?.Images || [];
+    // The biggest picture of a kind. Addresses start with "//", so add https:.
+    const pick = (purpose) => {
+      const best = images
+        .filter((i) => i.ImagePurpose === purpose && i.Uri)
+        .sort((a, b) => (b.Width || 0) * (b.Height || 0) - (a.Width || 0) * (a.Height || 0))[0];
+      return best ? (best.Uri.startsWith('//') ? `https:${best.Uri}` : best.Uri) : null;
+    };
+    return { cover: pick('Poster'), hero: pick('SuperHeroArt'), header: pick('BoxArt') || pick('Tile') };
+  } catch {
+    return {}; // Offline or the store is down.
+  }
+}
+
+// Bump this to look again for art for games where nothing was found before.
+const ART_VERSION = 2;
+const noArt = (art) => !art?.cover && !art?.hero && !art?.header;
+
 // Works out the art for one game. Each value is a local file path, a web
 // address, or null when nothing was found.
 async function findArt(game) {
+  if (game.folder === 'Xbox' && game.storeId) {
+    const store = await microsoftStoreArt(game.storeId);
+    if (store.cover || store.hero || store.header) {
+      return { appId: null, cover: store.cover || null, hero: store.hero || null, logo: null, header: store.header || null, v: ART_VERSION };
+    }
+  }
+
+  const art = { ...(await findSteamArt(game)), v: ART_VERSION };
+  // Last resort for Xbox games: the pictures inside the game's own files.
+  if (noArt(art) && game.localArt) {
+    art.header = game.localArt.square || null;
+    art.hero = game.localArt.splash || null;
+  }
+  return art;
+}
+
+async function findSteamArt(game) {
   const appId = game.appId
     || (await steamAppIdFromInstall(game.exePath))
     || (await steamAppIdFromName(game.name));
@@ -195,4 +242,4 @@ async function findArt(game) {
   return art;
 }
 
-module.exports = { findArt };
+module.exports = { findArt, ART_VERSION, noArt };

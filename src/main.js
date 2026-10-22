@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const fs = require('fs/promises');
 const path = require('path');
 const library = require('./library');
-const { findArt } = require('./art');
+const { findArt, ART_VERSION, noArt } = require('./art');
 const { extractIcon } = require('./exeicon');
 const { startTracking } = require('./playtime');
 const { STORES } = require('./stores');
@@ -95,7 +95,9 @@ async function findMissingArt() {
     do {
       findArtAgain = false;
       for (const game of [...lib.games]) {
-        if (game.art) continue;
+        // Games where nothing was found are tried again when the launcher
+        // learns a new place to look (ART_VERSION).
+        if (game.art && !(noArt(game.art) && (game.art.v || 1) < ART_VERSION)) continue;
         game.art = await findArt(game);
         library.save(lib);
         sendUpdate();
