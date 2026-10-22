@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https://*.steamstatic.com">
+  <title>Game Launcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <h1>Launcher</h1>
+    <input id="search" type="search" placeholder="Search games (Ctrl+F)" spellcheck="false">
+    <nav>
+      <a data-view="all" class="active">All games</a>
+      <a data-view="favourites">Favourites</a>
+      <a data-view="recent">Last played</a>
+      <h2>Groups</h2>
+      <div id="group-list"></div>
+      <a id="new-group" class="new-group">+ New group</a>
+    </nav>
+    <a data-view="storage">Storage</a>
+    <a data-view="folders">Game folders</a>
+    <a data-view="settings">Settings</a>
+  </aside>
+
+  <main>
+    <section id="view-all">
+      <header>
+        <h2>All games</h2>
+        <span id="status" class="muted"></span>
+        <button id="rescan-all" class="secondary" title="Look for newly installed or removed games">↻ Rescan</button>
+      </header>
+      <div id="grid" class="grid"></div>
+      <div id="empty" class="empty" hidden>
+        <p>No games yet.</p>
+        <p class="muted">Add a folder that has your games in it to get started.</p>
+        <button id="empty-add">Add a game folder</button>
+      </div>
+    </section>
+
+    <section id="view-game" class="game-page" hidden>
+      <div class="hero">
+        <div class="hero-art"></div>
+        <button id="back" class="back">‹ Back</button>
+        <img id="hero-logo" class="hero-logo" alt="" hidden>
+      </div>
+      <div class="game-body">
+        <div class="game-head">
+          <div id="game-cover" class="cover"></div>
+          <div class="game-info">
+            <h1 id="game-name"></h1>
+            <div class="meta">
+              <div><span class="label">Last played</span><span id="game-last"></span></div>
+              <div><span class="label">Total playtime</span><span id="game-total"></span></div>
+              <div><span class="label">Size on disk</span><span id="game-size"></span></div>
+            </div>
+            <div class="game-actions">
+              <button id="play" class="play">▶ Play</button>
+              <button id="game-fav" class="secondary fav-button">☆ Favourite</button>
+              <button id="game-groups" class="secondary">Groups...</button>
+              <button id="game-rename" class="secondary">Rename</button>
+              <button id="game-folder" class="secondary">Show in folder</button>
+              <button id="game-hide" class="secondary">Remove from launcher</button>
+              <button id="game-uninstall" class="secondary danger">Uninstall</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Playtime</h3>
+            <div class="tabs" id="period-tabs">
+              <button data-period="week" class="active">Week</button>
+              <button data-period="month">Month</button>
+              <button data-period="year">Year</button>
+            </div>
+          </div>
+          <p class="big-number"><span id="period-total"></span> <span id="period-label" class="muted"></span></p>
+          <div id="chart" class="chart"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-favourites" hidden>
+      <header><h2>Favourites</h2></header>
+      <div id="grid-favourites" class="grid"></div>
+      <div id="empty-favourites" class="empty" hidden>
+        <p>No favourites yet.</p>
+        <p class="muted">Open a game and press the ☆ star, or right-click a game and pick "Add to favourites".</p>
+      </div>
+    </section>
+
+    <section id="view-recent" hidden>
+      <header><h2>Last played</h2></header>
+      <div id="grid-recent" class="grid"></div>
+      <div id="empty-recent" class="empty" hidden>
+        <p>Nothing played yet.</p>
+        <p class="muted">Games you play show up here, newest first.</p>
+      </div>
+    </section>
+
+    <section id="view-group" hidden>
+      <header>
+        <h2 id="group-name"></h2>
+        <button id="group-rename" class="secondary">Rename</button>
+        <button id="group-delete" class="secondary">Delete group</button>
+      </header>
+      <div id="grid-group" class="grid"></div>
+      <div id="empty-group" class="empty" hidden>
+        <p>This group is empty.</p>
+        <p class="muted">Drag a game onto the group's name on the left, or right-click a game and pick "Groups...".</p>
+      </div>
+    </section>
+
+    <section id="view-storage" hidden>
+      <header>
+        <h2>Storage</h2>
+        <span id="storage-status" class="muted"></span>
+        <button id="storage-recalc" class="secondary">Recalculate</button>
+      </header>
+      <div class="card ring-card">
+        <div class="ring-wrap">
+          <svg id="ring" viewBox="0 0 200 200"></svg>
+          <div class="ring-centre"><strong id="ring-big"></strong><span id="ring-small" class="muted"></span></div>
+        </div>
+        <div class="ring-side">
+          <button id="ring-back" class="secondary" hidden>‹ All storage</button>
+          <h3 id="ring-title"></h3>
+          <div id="ring-legend" class="ring-legend"></div>
+          <p id="ring-hint" class="muted small">Click Games on the ring or in the list to see each game.</p>
+          <div id="drive-notes" class="drive-notes muted"></div>
+        </div>
+      </div>
+      <div id="storage-list" class="storage-list" hidden></div>
+    </section>
+
+    <section id="view-settings" hidden>
+      <header><h2>Settings</h2></header>
+      <div class="card settings">
+        <h3>Colours</h3>
+        <p class="muted">Pick a ready-made theme, or click a colour to change it. Changes save by themselves.</p>
+        <div id="themes" class="themes"></div>
+        <div id="color-list" class="color-list"></div>
+        <button id="reset-colors" class="secondary">Reset to default</button>
+      </div>
+    </section>
+
+    <section id="view-folders" hidden>
+      <header>
+        <h2>Game folders</h2>
+        <button id="add-folder">Add folder</button>
+        <button id="rescan" class="secondary">Rescan now</button>
+      </header>
+      <p class="muted">The launcher looks in these folders every time it starts, so new games show up by themselves.</p>
+      <ul id="folder-list" class="folder-list"></ul>
+    </section>
+  </main>
+
+  <div id="menu" class="menu" hidden>
+    <button data-action="open">Open</button>
+    <button data-action="launch">Play</button>
+    <button data-action="favourite">Add to favourites</button>
+    <button data-action="groups">Groups...</button>
+    <button data-action="rename">Rename</button>
+    <button data-action="folder">Show in folder</button>
+    <button data-action="hide">Remove from launcher</button>
+    <button data-action="uninstall">Uninstall</button>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <div id="modal" class="modal-backdrop" hidden>
+    <form id="modal-box" class="modal">
+      <h3 id="modal-title"></h3>
+      <div id="modal-body"></div>
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel" class="secondary">Cancel</button>
+        <button type="submit" id="modal-ok">OK</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="playtime-stats.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
