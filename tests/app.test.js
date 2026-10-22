@@ -568,3 +568,48 @@ test("xbox: the game page shows playtime even when Windows won't let the launche
     await app.close();
   }
 });
+
+test('uninstall: Ubisoft games uninstall through Ubisoft Connect after confirming', async () => {
+  const stores = makeStores({ Ubisoft: ['Star Wars Outlaws'] });
+  const { app, page } = await launch({ stores });
+  try {
+    await app.evaluate(({ shell }) => {
+      globalThis.opened = [];
+      shell.openExternal = async (url) => globalThis.opened.push(url);
+    });
+    await page.click('#grid .tile');
+    await page.click('#game-uninstall');
+    await page.waitForSelector('#modal:not([hidden])');
+    assert.strictEqual(await page.textContent('#modal-title'), 'Uninstall Star Wars Outlaws?');
+    assert.match(await page.textContent('#modal-body'), /Ubisoft Connect will open/);
+    await page.click('#modal-cancel');
+    assert.deepStrictEqual(await app.evaluate(() => globalThis.opened), [], 'Cancel does nothing');
+
+    await page.click('#game-uninstall');
+    await page.click('#modal-ok');
+    await page.waitForFunction(() => document.getElementById('toast').textContent.includes('disappear from the launcher'));
+    assert.deepStrictEqual(await app.evaluate(() => globalThis.opened), ['uplay://uninstall/200']);
+  } finally {
+    await app.close();
+  }
+});
+
+test('uninstall: Xbox games are removed by Windows after confirming, and a failure is explained', async () => {
+  const stores = makeStores({ Xbox: ['Roblox'] });
+  const { app, page } = await launch({ stores });
+  try {
+    await page.click('#grid .tile');
+    await page.click('#game-uninstall');
+    await page.waitForSelector('#modal:not([hidden])');
+    assert.strictEqual(await page.textContent('#modal-title'), 'Uninstall Roblox?');
+    assert.match(await page.textContent('#modal-body'), /Windows will uninstall it/);
+    await page.click('#modal-ok');
+    // This test machine isn't Windows, so removing it fails: that must be said plainly.
+    await page.waitForFunction(() => document.getElementById('modal-title').textContent === "Couldn't uninstall");
+    assert.match(await page.textContent('#modal-body'), process.platform === 'win32' ? /Windows/ : /Only works on Windows/);
+    await page.click('#modal-ok');
+    assert.deepStrictEqual(await tileNames(page), ['Roblox']);
+  } finally {
+    await app.close();
+  }
+});
