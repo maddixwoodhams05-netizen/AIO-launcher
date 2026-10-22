@@ -138,3 +138,168 @@ test('playtime maths', () => {
   assert.strictEqual(formatDuration(45 * 60000), '45 min');
   assert.strictEqual(formatDuration(90 * 60000), '1.5 hrs');
 });
+
+// ---------- Other stores ----------
+
+const { parseRegistry, findStoreGames, findEpicGames, findXboxGames } = require('../src/stores');
+const { isNewer, createUpdater } = require('../src/updater');
+const { makeStores } = require('./helpers');
+
+test('reads the registry the way Windows prints it', () => {
+  const text = [
+    '',
+    'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1207658924',
+    '    gameID    REG_SZ    1207658924',
+    '    gameName    REG_SZ    The Witcher: Enhanced Edition',
+    '    path    REG_SZ    D:\\GOG Games\\The Witcher',
+    '    dependsOn    REG_SZ    ',
+    '',
+  ].join('\r\n');
+  assert.deepStrictEqual(parseRegistry(text), {
+    'HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games\\1207658924': {
+      gameID: '1207658924',
+      gameName: 'The Witcher: Enhanced Edition',
+      path: 'D:\\GOG Games\\The Witcher',
+      dependsOn: '',
+    },
+  });
+});
+
+test('finds games from Epic, GOG, EA, Ubisoft and Xbox, each started through its store', async () => {
+  const file = makeStores({ Epic: ['Fortnite'], GOG: ['The Witcher'], EA: ['Apex Legends'], Ubisoft: ['Far Cry 6'], Xbox: ['Sea of Thieves'] });
+  process.env.LAUNCHER_TEST_STORES = file;
+  try {
+    const games = await findStoreGames();
+    const byStore = Object.fromEntries(games.map((g) => [g.store, g]));
+    assert.deepStrictEqual(Object.keys(byStore).sort(), ['EA', 'Epic', 'GOG', 'Ubisoft', 'Xbox']);
+    assert.strictEqual(byStore.Epic.name, 'Fortnite');
+    assert.strictEqual(path.basename(byStore.Epic.exePath), 'Fortnite.exe');
+    assert.strictEqual(byStore.Epic.launchUrl, 'com.epicgames.launcher://apps/ns%3Aitem0%3Aapp0?action=launch&silent=true');
+    assert.strictEqual(byStore.GOG.name, 'The Witcher');
+    assert.strictEqual(byStore.GOG.launchUrl, undefined, 'GOG games start from their EXE');
+    assert.strictEqual(byStore.EA.launchUrl, 'origin2://game/launch?offerIds=300&autoDownload=1');
+    assert.strictEqual(byStore.Ubisoft.name, 'Far Cry 6', 'name comes from the installed programs list');
+    assert.strictEqual(byStore.Ubisoft.launchUrl, 'uplay://launch/200/0');
+    assert.strictEqual(byStore.Xbox.launchUrl, 'shell:AppsFolder\\Publisher.Game0_8wekyb3d8bbwe!Game');
+  } finally {
+    delete process.env.LAUNCHER_TEST_STORES;
+  }
+});
+
+test('Epic: skips add-ons, half-downloaded games and non-games', async () => {
+  const root = tempDir('epic');
+  const dir = path.join(root, 'Game');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'Game.exe'), Buffer.alloc(300000, 1));
+  const item = { DisplayName: 'Game', InstallLocation: dir, LaunchExecutable: 'Game.exe', AppName: 'a', MainGameAppName: 'a', AppCategories: ['games'] };
+  const write = (name, extra) => fs.writeFileSync(path.join(root, `${name}.item`), JSON.stringify({ ...item, ...extra }));
+  write('game', {});
+  write('dlc', { AppName: 'dlc', DisplayName: 'DLC' });
+  write('half', { AppName: 'half', MainGameAppName: 'half', DisplayName: 'Half', bIsIncompleteInstall: true });
+  write('engine', { AppName: 'ue', MainGameAppName: 'ue', DisplayName: 'Unreal Engine', AppCategories: ['engines'] });
+  write('gone', { AppName: 'gone', MainGameAppName: 'gone', DisplayName: 'Gone', InstallLocation: path.join(root, 'nope') });
+  fs.writeFileSync(path.join(root, 'broken.item'), '{ not json');
+  assert.deepStrictEqual((await findEpicGames({ manifests: root })).map((g) => g.name), ['Game']);
+});
+
+test('GOG: add-ons (DLC) are not listed as games', async () => {
+  const file = makeStores({ GOG: ['Cyberpunk 2077'] });
+  const fake = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const key = 'HKLM\\SOFTWARE\\WOW6432Node\\GOG.com\\Games';
+  fake.registry[key] += fake.registry[key].replace(/\\100/, '\\101').replace('gameID    REG_SZ    100', 'gameID    REG_SZ    101\r\n    dependsOn    REG_SZ    100');
+  fs.writeFileSync(file, JSON.stringify(fake));
+  process.env.LAUNCHER_TEST_STORES = file;
+  try {
+    assert.deepStrictEqual((await findStoreGames()).map((g) => g.storeId), ['100']);
+  } finally {
+    delete process.env.LAUNCHER_TEST_STORES;
+  }
+});
+
+test('Xbox: names Windows has to look up fall back to a readable name', async () => {
+  const dir = tempDir('xbox');
+  fs.writeFileSync(path.join(dir, 'Game.exe'), Buffer.alloc(300000, 1));
+  const games = await findXboxGames({
+    xboxPackages: async () => [
+      { name: 'Microsoft.SeaofThieves', family: 'f_1', dir, appId: 'App', displayName: 'ms-resource:Title', config: '<Executable Name="Game.exe" />' },
+      { name: 'Broken', family: 'f_2', dir }, // no app id: can't be started
+    ],
+  });
+  assert.deepStrictEqual(games.map((g) => g.name), ['Seaof Thieves']);
+});
+
+// ---------- Updates ----------
+
+test('works out which version is newer', () => {
+  assert.strictEqual(isNewer('1.1.0', '1.0.0'), true);
+  assert.strictEqual(isNewer('v1.10.0', '1.9.2'), true);
+  assert.strictEqual(isNewer('1.0.0', '1.0.0'), false);
+  assert.strictEqual(isNewer('1.0.9', '1.1.0'), false);
+  assert.strictEqual(isNewer('2.0.0-beta', '1.9.0'), true);
+});
+
+test('portable launcher: says a new version is out and opens the download page', async () => {
+  const release = (tag) => async () => ({ ok: true, url: `https://github.com/x/releases/tag/${tag}` });
+  globalThis.fetch = release('v9.0.0');
+  const sent = [];
+  const opened = [];
+  const updater = createUpdater({ current: '1.1.0', autoUpdater: null, send: (i) => sent.push(i.state), openUrl: (u) => opened.push(u) });
+  await updater.check();
+  assert.deepStrictEqual(sent, ['checking', 'available']);
+  assert.strictEqual(updater.status().version, '9.0.0');
+  assert.strictEqual(updater.status().canInstall, false);
+  updater.install();
+  assert.deepStrictEqual(opened, ['https://github.com/x/releases/tag/v9.0.0']);
+
+  globalThis.fetch = release('v1.1.0');
+  await updater.check();
+  assert.strictEqual(updater.status().state, 'none');
+
+  globalThis.fetch = async () => {
+    throw new Error('offline');
+  };
+  await updater.check();
+  assert.strictEqual(updater.status().state, 'error');
+});
+
+test('installed launcher: Update now downloads, then installs and restarts', async () => {
+  const EventEmitter = require('events');
+  const auto = new EventEmitter();
+  const calls = [];
+  auto.checkForUpdates = async () => auto.emit('update-available', { version: '1.2.0' });
+  auto.downloadUpdate = async () => {
+    auto.emit('download-progress', { percent: 50 });
+    auto.emit('update-downloaded', { version: '1.2.0' });
+  };
+  auto.quitAndInstall = (...args) => calls.push(args);
+  const states = [];
+  const updater = createUpdater({ current: '1.1.0', autoUpdater: auto, send: (i) => states.push(i.state), openUrl: () => {} });
+  assert.strictEqual(auto.autoDownload, false, 'never downloads without asking');
+  await updater.check();
+  assert.strictEqual(updater.status().state, 'available');
+  assert.strictEqual(updater.status().canInstall, true);
+  updater.install();
+  await new Promise((r) => setTimeout(r, 1700));
+  assert.deepStrictEqual(states, ['checking', 'available', 'downloading', 'downloading', 'installing']);
+  assert.deepStrictEqual(calls, [[true, true]], 'installs quietly and starts the new version');
+});
+
+test('installed launcher: a failed download can be tried again', async () => {
+  const EventEmitter = require('events');
+  const auto = new EventEmitter();
+  auto.checkForUpdates = async () => auto.emit('update-available', { version: '1.2.0' });
+  auto.downloadUpdate = async () => auto.emit('error', new Error('connection lost'));
+  const updater = createUpdater({ current: '1.1.0', autoUpdater: auto, send: () => {}, openUrl: () => {} });
+  await updater.check();
+  updater.install();
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(updater.status().state, 'available');
+});
+
+// ---------- Releases ----------
+
+test('the changelog has an entry for this version', () => {
+  const { version } = require('../package.json');
+  const changelog = fs.readFileSync(path.join(__dirname, '..', 'CHANGELOG.md'), 'utf8');
+  assert.match(changelog, new RegExp(`^## \\[?${version.replace(/\./g, '\\.')}\\]?`, 'm'), `add a "## ${version}" section to CHANGELOG.md`);
+});
