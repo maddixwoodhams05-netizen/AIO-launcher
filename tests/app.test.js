@@ -548,3 +548,23 @@ test("xbox: a game with no art from 1.1.0 gets the logo from its own files", asy
     await app.close();
   }
 });
+
+test("xbox: the game page shows playtime even when Windows won't let the launcher read the game's EXE", async () => {
+  const stores = makeStores({ Xbox: ['Roblox'] });
+  // Xbox games live in a locked folder (WindowsApps), so the EXE can't be opened.
+  const fake = JSON.parse(fs.readFileSync(stores, 'utf8'));
+  fake.xboxPackages[0].config = fake.xboxPackages[0].config.replace('Roblox.exe', 'Locked.exe');
+  fs.writeFileSync(stores, JSON.stringify(fake));
+  const exePath = path.join(fake.xboxPackages[0].dir, 'Locked.exe');
+  const sessions = [[Date.now() - 2 * 3600000, Date.now() - 3600000]];
+  const { app, page } = await launch({ library: { games: [{ name: 'Roblox', exePath, folder: 'Xbox', sessions, art: { v: 2 } }] }, stores });
+  try {
+    await page.click('#grid .tile');
+    await page.waitForFunction(() => document.getElementById('period-total').textContent !== '', null, { timeout: 5000 });
+    assert.strictEqual(await page.textContent('#period-total'), await page.evaluate(() => formatDuration(3600000)));
+    assert.strictEqual(await page.textContent('#game-total'), await page.evaluate(() => formatDuration(3600000)));
+    assert.strictEqual(await page.locator('#chart .col').count(), 7);
+  } finally {
+    await app.close();
+  }
+});
