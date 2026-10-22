@@ -17,14 +17,19 @@ const { createUpdater } = require('./updater');
 // - npm start and the installed app share one folder, so updates keep everything.
 // - the automatic tests point it at a pretend library instead.
 const appFolder = path.dirname(process.execPath);
+// (Before 1.1.2 the launcher was called "Game Launcher".)
 const installed =
-  require('fs').existsSync(path.join(appFolder, 'Uninstall Game Launcher.exe')) ||
+  ['Uninstall Maio Launcher.exe', 'Uninstall Game Launcher.exe'].some((f) => require('fs').existsSync(path.join(appFolder, f))) ||
   /[\\/]AppData[\\/]Local[\\/]Programs[\\/]/i.test(appFolder);
 const portable = app.isPackaged && !installed;
+// A portable copy from before the rename keeps using its old data folder.
+const portableData = ['Maio Launcher data', 'Game Launcher data']
+  .map((f) => path.join(appFolder, f))
+  .find((f) => require('fs').existsSync(f)) || path.join(appFolder, 'Maio Launcher data');
+// The installed launcher's data folder keeps its old name, so libraries carry over.
 app.setPath(
   'userData',
-  process.env.LAUNCHER_DATA_DIR ||
-    (portable ? path.join(appFolder, 'Game Launcher data') : path.join(app.getPath('appData'), 'game-launcher'))
+  process.env.LAUNCHER_DATA_DIR || (portable ? portableData : path.join(app.getPath('appData'), 'game-launcher'))
 );
 const { closeGame } = require('./closegame');
 const storage = require('./storage');
@@ -62,7 +67,7 @@ function createWindow() {
     width: 1280,
     height: 860,
     backgroundColor: lib.settings?.colors?.bg || '#14161a',
-    title: 'Game Launcher',
+    title: 'Maio Launcher',
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

@@ -19,7 +19,7 @@ function isNewer(latest, current) {
 // release" page forwards to the page of that version, e.g. .../tag/v1.1.0.
 // (This avoids GitHub's API, which only allows 60 checks an hour.)
 async function latestRelease() {
-  const res = await fetch(RELEASES_PAGE, { method: 'HEAD', headers: { 'User-Agent': 'AIO-Game-Launcher' } });
+  const res = await fetch(RELEASES_PAGE, { method: 'HEAD', headers: { 'User-Agent': 'Maio-Launcher' } });
   if (!res.ok) throw new Error(`GitHub said ${res.status}`);
   const tag = decodeURIComponent(res.url.match(/\/releases\/tag\/([^/?#]+)/)?.[1] || '');
   if (!tag) throw new Error('GitHub has no releases yet');
