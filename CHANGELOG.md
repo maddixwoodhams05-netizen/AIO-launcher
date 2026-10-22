@@ -5,6 +5,10 @@ Each release on GitHub shows its own part of this list.
 
 ## 1.1.1
 
+### New
+- Uninstall Ubisoft Connect and Xbox games from the launcher. Ubisoft Connect
+  asks you to confirm; Xbox games are removed by Windows, like in the Xbox app.
+
 ### Fixed
 - Xbox app games that aren't on Steam (like Minecraft Launcher or Roblox) now
   get artwork: a cover and banner from the Microsoft Store, or the game's own
