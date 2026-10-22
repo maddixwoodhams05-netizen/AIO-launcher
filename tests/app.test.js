@@ -531,3 +531,20 @@ test('light theme: game names on tiles can be read', async () => {
     await app.close();
   }
 });
+
+test("xbox: a game with no art from 1.1.0 gets the logo from its own files", async () => {
+  const stores = makeStores({ Xbox: ['Roblox'] });
+  const fake = JSON.parse(fs.readFileSync(stores, 'utf8')).xboxPackages[0];
+  const exePath = path.join(fake.dir, 'Roblox.exe');
+  // Saved by 1.1.0, which found nothing for it.
+  const art = { appId: null, cover: null, hero: null, logo: null, header: null };
+  const { app, page, readLibrary } = await launch({ library: { games: [{ name: 'Roblox', exePath, folder: 'Xbox', art }] }, stores });
+  try {
+    await page.waitForFunction(() => document.querySelector('#grid .tile .art img'));
+    const saved = readLibrary().games[0].art;
+    assert.strictEqual(saved.header, path.join(fake.dir, 'Logo.scale-200.png'));
+    assert.match(await page.getAttribute('#grid .tile .art img', 'src'), /^data:image\/png;base64,/);
+  } finally {
+    await app.close();
+  }
+});

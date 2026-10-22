@@ -303,3 +303,51 @@ test('the changelog has an entry for this version', () => {
   const changelog = fs.readFileSync(path.join(__dirname, '..', 'CHANGELOG.md'), 'utf8');
   assert.match(changelog, new RegExp(`^## \\[?${version.replace(/\./g, '\\.')}\\]?`, 'm'), `add a "## ${version}" section to CHANGELOG.md`);
 });
+
+// ---------- Xbox art ----------
+
+// Pretend Microsoft Store catalogue, shaped like the real reply.
+function fakeMicrosoftStore(images) {
+  globalThis.fetch = async (url) => {
+    const u = new URL(url);
+    if (u.hostname === 'displaycatalog.mp.microsoft.com') {
+      assert.strictEqual(u.searchParams.get('alternateId'), 'PackageFamilyName');
+      return { ok: true, json: async () => ({ Products: images ? [{ LocalizedProperties: [{ Images: images }] }] : [] }) };
+    }
+    if (u.pathname.includes('storesearch')) return { ok: true, json: async () => ({ items: [] }) };
+    return { ok: false, json: async () => ({}) };
+  };
+}
+
+test('Xbox art: tall cover and wide banner from the Microsoft Store, biggest picture wins', async () => {
+  fakeMicrosoftStore([
+    { ImagePurpose: 'Poster', Uri: '//store-images.s-microsoft.com/image/small', Width: 200, Height: 300 },
+    { ImagePurpose: 'Poster', Uri: '//store-images.s-microsoft.com/image/poster', Width: 720, Height: 1080 },
+    { ImagePurpose: 'SuperHeroArt', Uri: '//store-images.s-microsoft.com/image/hero', Width: 3840, Height: 2160 },
+    { ImagePurpose: 'BoxArt', Uri: '//store-images.s-microsoft.com/image/box', Width: 1080, Height: 1080 },
+  ]);
+  const art = await findArt({ name: 'Roblox', folder: 'Xbox', storeId: 'ROBLOXCorporation.RobloxGDK_55nm5eh3cm0pr', exePath: 'C:\\x\\Roblox.exe' });
+  assert.strictEqual(art.cover, 'https://store-images.s-microsoft.com/image/poster');
+  assert.strictEqual(art.hero, 'https://store-images.s-microsoft.com/image/hero');
+  assert.strictEqual(art.header, 'https://store-images.s-microsoft.com/image/box');
+});
+
+test("Xbox art: when no store has it, uses the pictures in the game's own files", async () => {
+  fakeMicrosoftStore(null);
+  const dir = tempDir('xboxart');
+  fs.mkdirSync(path.join(dir, 'Assets'));
+  fs.writeFileSync(path.join(dir, 'Game.exe'), Buffer.alloc(300000, 1));
+  fs.writeFileSync(path.join(dir, 'Assets', 'Logo.scale-100.png'), Buffer.alloc(100));
+  fs.writeFileSync(path.join(dir, 'Assets', 'Logo.scale-400.png'), Buffer.alloc(900));
+  fs.writeFileSync(path.join(dir, 'Assets', 'Splash.png'), Buffer.alloc(500));
+  const [game] = await findXboxGames({
+    xboxPackages: async () => [{
+      name: 'X.Game', family: 'X.Game_1', dir, appId: 'Game',
+      config: '<ShellVisuals DefaultDisplayName="Some Game" Square150x150Logo="Assets/Logo.png" SplashScreenImage="Assets/Splash.png" /><Executable Name="Game.exe" />',
+    }],
+  });
+  assert.deepStrictEqual(game.localArt, { square: path.join(dir, 'Assets', 'Logo.scale-400.png'), splash: path.join(dir, 'Assets', 'Splash.png') });
+  const art = await findArt({ ...game, folder: 'Xbox' });
+  assert.strictEqual(art.header, game.localArt.square);
+  assert.strictEqual(art.hero, game.localArt.splash);
+});

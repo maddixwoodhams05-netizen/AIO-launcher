@@ -92,13 +92,18 @@ function makeStores(games, sizes = {}) {
       return [`{EA-${i}}`, { DisplayName: name, InstallLocation: dir, UninstallString: `"C:\\Program Files\\Common Files\\EAInstaller\\${name}\\Cleanup.exe" uninstall_game` }];
     }),
   ]);
-  fake.xboxPackages = (games.Xbox || []).map((name, i) => ({
-    name: `Publisher.${name.replace(/\W+/g, '')}`,
-    family: `Publisher.Game${i}_8wekyb3d8bbwe`,
-    dir: gameDir('Xbox', name),
-    appId: 'Game',
-    config: `<Game><ShellVisuals DefaultDisplayName="${name}" /><ExecutableList><Executable Name="${name.replace(/\W+/g, '')}.exe" /></ExecutableList></Game>`,
-  }));
+  fake.xboxPackages = (games.Xbox || []).map((name, i) => {
+    const dir = gameDir('Xbox', name);
+    // Xbox games come with their own logo, in a few sizes.
+    fs.copyFileSync(path.join(__dirname, '..', 'src', 'icon.png'), path.join(dir, 'Logo.scale-200.png'));
+    return {
+      name: `Publisher.${name.replace(/\W+/g, '')}`,
+      family: `Publisher.Game${i}_8wekyb3d8bbwe`,
+      dir,
+      appId: 'Game',
+      config: `<Game><ShellVisuals DefaultDisplayName="${name}" Square150x150Logo="Logo.png" /><ExecutableList><Executable Name="${name.replace(/\W+/g, '')}.exe" /></ExecutableList></Game>`,
+    };
+  });
   // Steam: a pretend Steam folder with one manifest per game.
   const steamapps = path.join(root, 'Steam', 'steamapps');
   (games.Steam || []).forEach((name, i) => {
