@@ -1,5 +1,6 @@
 # Builds the installer and portable zip on a Windows machine and attaches them
-# to a GitHub Release named after the version in package.json (e.g. v1.0.0).
+# to a GitHub Release named after the version in package.json (e.g. v1.1.0).
+# Before releasing, bump the version and add what changed to CHANGELOG.md.
 # Start it from the Actions tab ("Run workflow"), or by pushing a version tag.
 name: Release
 
@@ -30,6 +31,10 @@ jobs:
       - name: Build installer and portable zip
         run: npx electron-builder --win --publish never
 
+      # The release text: what's new (from CHANGELOG.md) and what each download is.
+      - name: Write the release notes
+        run: node .github/release-notes.js > dist/release-notes.md
+
       - name: Read the version
         id: version
         shell: bash
@@ -49,7 +54,10 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Game Launcher ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
+          # latest.yml and the .blockmap let the installed launcher update itself.
           files: |
             dist/*.exe
             dist/*.zip
-          body_path: RELEASE_NOTES.md
+            dist/latest.yml
+            dist/*.blockmap
+          body_path: dist/release-notes.md
