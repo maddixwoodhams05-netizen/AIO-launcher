@@ -387,6 +387,9 @@ async function renderGamePage() {
   $('game-total').textContent = formatDuration(totalPlaytime(game.sessions));
   $('game-size').textContent = game.size ? formatSize(game.size) : 'Not worked out yet';
   $('game-uninstall').textContent = game.size ? `Uninstall (${formatSize(game.size)})` : 'Uninstall';
+  // Playtime and the Play button first, so slow or missing art never holds them up.
+  renderPlayButton();
+  renderPlaytime(game);
   setArt($('game-cover'), game);
   setBadge($('game-cover'), game);
 
@@ -409,9 +412,6 @@ async function renderGamePage() {
   const logo = hero && (await loadImage(art.logo));
   $('hero-logo').hidden = !logo;
   if (logo) $('hero-logo').src = logo;
-
-  renderPlayButton();
-  renderPlaytime(game);
 }
 
 function renderPlaytime(game) {

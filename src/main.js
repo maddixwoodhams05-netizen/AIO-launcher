@@ -112,7 +112,8 @@ async function findMissingArt() {
 const iconCache = new Map();
 async function getIcon(exePath) {
   if (!iconCache.has(exePath)) {
-    let icon = await extractIcon(exePath);
+    // Some EXEs can't be opened (Xbox games live in a locked folder).
+    let icon = await extractIcon(exePath).catch(() => null);
     if (!icon) {
       try {
         icon = (await app.getFileIcon(exePath, { size: 'large' })).toDataURL();
