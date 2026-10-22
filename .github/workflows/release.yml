@@ -1,0 +1,55 @@
+# Builds the installer and portable zip on a Windows machine and attaches them
+# to a GitHub Release named after the version in package.json (e.g. v1.0.0).
+# Start it from the Actions tab ("Run workflow"), or by pushing a version tag.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run the automatic tests
+        run: npm test
+
+      - name: Build installer and portable zip
+        run: npx electron-builder --win --publish never
+
+      - name: Read the version
+        id: version
+        shell: bash
+        run: echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Running this again replaces the old release, so the tag and source
+      # code always match the newest build.
+      - name: Remove an older release with the same version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "${{ steps.version.outputs.tag }}" --cleanup-tag --yes || true
+
+      - name: Attach them to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Game Launcher ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            dist/*.exe
+            dist/*.zip
+          body_path: RELEASE_NOTES.md
