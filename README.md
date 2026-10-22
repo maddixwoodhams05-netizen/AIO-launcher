@@ -1,4 +1,4 @@
-# AIO Game Launcher
+# Maio Launcher
 
 One place for every game on your Windows PC. It finds your games from Steam,
 Epic Games, GOG, EA app, Ubisoft Connect and Xbox by itself, plus games in any
@@ -11,11 +11,11 @@ library.
 
 Get the latest version from the [Releases page](../../releases/latest):
 
-- **Game-Launcher-Setup.exe**: installs the launcher with desktop and Start
+- **Maio-Launcher-Setup.exe**: installs the launcher with desktop and Start
   menu shortcuts. It updates itself in one click when a new version is out,
   and your library is kept.
-- **Game-Launcher-portable.zip**: no install. Unzip anywhere (even a USB stick)
-  and run `Game Launcher.exe`. It keeps its library in a `Game Launcher data`
+- **Maio-Launcher-portable.zip**: no install. Unzip anywhere (even a USB stick)
+  and run `Maio Launcher.exe`. It keeps its library in a `Maio Launcher data`
   folder next to itself, and tells you when a new version is out.
 
 ### Requirements
