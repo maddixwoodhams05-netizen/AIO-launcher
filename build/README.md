@@ -1,3 +1,3 @@
 # build: installer files
 
-`icon.png` is the MAIO icon used for the installer, the app and its shortcuts.
+`icon.png` is the Maio icon (a purple M) used for the installer, the app and its shortcuts.
