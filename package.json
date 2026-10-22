@@ -1,7 +1,7 @@
 {
   "name": "game-launcher",
-  "version": "1.1.1",
-  "description": "An all-in-one launcher for the games on your PC",
+  "version": "1.1.2",
+  "description": "Maio Launcher: an all-in-one launcher for the games on your PC",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -18,7 +18,7 @@
   },
   "build": {
     "appId": "com.maddix.gamelauncher",
-    "productName": "Game Launcher",
+    "productName": "Maio Launcher",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -33,17 +33,17 @@
         "zip"
       ],
       "icon": "build/icon.png",
-      "artifactName": "Game-Launcher-${version}-portable.${ext}"
+      "artifactName": "Maio-Launcher-${version}-portable.${ext}"
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "Game Launcher",
+      "shortcutName": "Maio Launcher",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "artifactName": "Game-Launcher-Setup-${version}.${ext}"
+      "artifactName": "Maio-Launcher-Setup-${version}.${ext}"
     },
     "publish": [
       {
