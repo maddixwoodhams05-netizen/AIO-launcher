@@ -2,7 +2,7 @@
 // The installed launcher downloads and installs it in one click (with
 // electron-updater). The portable zip can't replace itself while it runs, so
 // it says a new version is out and opens the download page instead.
-const REPO = 'maddixwoodhams05-netizen/AIO-launcher';
+const REPO = 'maddixwoodhams05-netizen/MAIO-launcher';
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`;
 
 // "1.10.0" is newer than "1.9.2". Anything after a "-" (like "-beta") is ignored.

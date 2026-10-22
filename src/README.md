@@ -17,4 +17,4 @@
 | `playtime-stats.js` | Turns playtime into the week, month and year charts |
 | `closegame.js` | Closes a running game for the Close game button |
 | `storage.js` | Drive sizes, game folder sizes and uninstalling |
-| `icon.png` | The MAIO icon on the window |
+| `icon.png` | The Maio icon (a purple M) on the window |
