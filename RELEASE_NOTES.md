@@ -1,7 +1,7 @@
 ## Downloads
 
-- **Game-Launcher-Setup-{version}.exe**: the installer. Adds desktop and Start menu shortcuts. Once installed, the launcher updates itself in one click whenever a new version is out, and your library is kept.
-- **Game-Launcher-{version}-portable.zip**: no install needed. Unzip it anywhere (even a USB stick) and run `Game Launcher.exe`. It keeps its library in a `Game Launcher data` folder next to itself, and tells you when a new version is out.
+- **Maio-Launcher-Setup-{version}.exe**: the installer. Adds desktop and Start menu shortcuts. Once installed, the launcher updates itself in one click whenever a new version is out, and your library is kept.
+- **Maio-Launcher-{version}-portable.zip**: no install needed. Unzip it anywhere (even a USB stick) and run `Maio Launcher.exe`. It keeps its library in a `Maio Launcher data` folder next to itself, and tells you when a new version is out.
 
 **Requirements:** Windows 10 or 11 (64-bit). Nothing else to install. Steam, Epic Games, GOG, EA app, Ubisoft Connect and the Xbox app are all optional.
 
