@@ -3,7 +3,8 @@ rem Builds the Windows installer and the portable zip from the code in this fold
 rem Needs Node.js (https://nodejs.org). Only needed to build, not to play.
 rem They appear in the "dist" folder, which opens when it is done.
 cd /d "%~dp0"
-if not exist node_modules\electron-builder call npm install --no-audit --no-fund
+rem Fetches any libraries that are missing or new (quick when nothing changed).
+call npm install --no-audit --no-fund
 echo.
 echo Building... this takes a few minutes the first time.
 echo.
