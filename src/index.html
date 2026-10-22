@@ -14,6 +14,8 @@
       <a data-view="all" class="active">All games</a>
       <a data-view="favourites">Favourites</a>
       <a data-view="recent">Last played</a>
+      <h2 id="stores-heading" hidden>Stores</h2>
+      <div id="store-list"></div>
       <h2>Groups</h2>
       <div id="group-list"></div>
       <a id="new-group" class="new-group">+ New group</a>
@@ -24,6 +26,13 @@
   </aside>
 
   <main>
+    <div id="update-bar" class="update-bar" hidden>
+      <span id="update-text"></span>
+      <button id="update-notes" class="secondary">What's new</button>
+      <button id="update-go">Update now</button>
+      <button id="update-later" class="secondary">Later</button>
+    </div>
+
     <section id="view-all">
       <header>
         <h2>All games</h2>
@@ -112,6 +121,11 @@
       </div>
     </section>
 
+    <section id="view-store" hidden>
+      <header><h2 id="store-name"></h2></header>
+      <div id="grid-store" class="grid"></div>
+    </section>
+
     <section id="view-storage" hidden>
       <header>
         <h2>Storage</h2>
@@ -142,6 +156,20 @@
         <div id="themes" class="themes"></div>
         <div id="color-list" class="color-list"></div>
         <button id="reset-colors" class="secondary">Reset to default</button>
+      </div>
+
+      <div class="card settings">
+        <h3>Stores</h3>
+        <p class="muted">Games from Steam, Epic Games, GOG, EA app, Ubisoft Connect and Xbox are found by themselves.</p>
+        <label class="check"><input type="checkbox" id="set-storeTabs"> Show a tab for each store in the sidebar</label>
+        <label class="check"><input type="checkbox" id="set-storeLogos"> Show the store's logo in the corner of each game</label>
+      </div>
+
+      <div class="card settings">
+        <h3>Updates</h3>
+        <p class="muted">You have version <span id="app-version"></span>. <span id="update-status"></span></p>
+        <label class="check"><input type="checkbox" id="set-autoUpdateCheck"> Check for updates when the launcher starts</label>
+        <button id="update-check" class="secondary">Check for updates</button>
       </div>
     </section>
 
@@ -181,6 +209,7 @@
   </div>
 
   <script src="playtime-stats.js"></script>
+  <script src="store-logos.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

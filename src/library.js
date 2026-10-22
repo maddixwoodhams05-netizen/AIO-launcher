@@ -4,6 +4,7 @@ const path = require('path');
 const { app } = require('electron');
 const { scanFolder } = require('./scanner');
 const { findSteamGames } = require('./steam');
+const { findStoreGames } = require('./stores');
 
 const libraryFile = () => path.join(app.getPath('userData'), 'library.json');
 
@@ -30,6 +31,7 @@ function save(library) {
 const key = (exePath) => exePath.toLowerCase();
 
 // Marks games that came from Steam rather than a picked folder.
+// Games from other stores are marked with the store instead (see stores.js).
 const STEAM = 'Steam';
 
 // Rescans every saved folder. New games are added, games whose EXE is gone
@@ -41,7 +43,8 @@ async function rescan(library) {
 
   // Steam games are found automatically, without picking a folder.
   // Steam's own names and app ids are kept even if a picked folder has the game too.
-  for (const game of await findSteamGames()) {
+  // (The automatic tests point it at a pretend Steam folder.)
+  for (const game of await findSteamGames(process.env.LAUNCHER_TEST_STEAM)) {
     const k = key(game.exePath);
     if (hidden.has(k)) continue;
     const old = existing.get(k);
@@ -59,6 +62,27 @@ async function rescan(library) {
     found.set(k, updated);
   }
 
+  // Then Epic, GOG, EA and Ubisoft. A game a store installed is marked with
+  // that store, even if a picked folder has it too.
+  for (const { store, ...game } of await findStoreGames()) {
+    const k = key(game.exePath);
+    if (hidden.has(k) || found.has(k)) continue;
+    const old = existing.get(k);
+    const fromStore = { gameDir: game.gameDir, folder: store, storeId: game.storeId, launchUrl: game.launchUrl || undefined };
+    if (game.size) fromStore.size = game.size;
+    if (!old) {
+      found.set(k, { ...game, ...fromStore, addedAt: Date.now() });
+      continue;
+    }
+    const updated = { ...old, ...fromStore, name: game.name };
+    if (old.originalName) Object.assign(updated, { name: old.name, originalName: game.name });
+    found.set(k, updated);
+  }
+
+  // Folders a store already looked after, so a picked folder doesn't add the
+  // same game twice when it guesses a different EXE.
+  const storeDirs = new Set([...found.values()].map((g) => g.gameDir && key(g.gameDir)).filter(Boolean));
+
   for (const folder of library.folders) {
     const scanned = await scanFolder(folder);
     // If the folder can't be reached, keep its games instead of wiping them.
@@ -66,6 +90,7 @@ async function rescan(library) {
     for (const game of games) {
       const k = key(game.exePath);
       if (hidden.has(k) || found.has(k)) continue;
+      if (game.gameDir && storeDirs.has(key(game.gameDir))) continue;
       const old = existing.get(k);
       found.set(k, old ? { ...old, gameDir: game.gameDir || old.gameDir } : { ...game, folder, addedAt: Date.now() });
     }

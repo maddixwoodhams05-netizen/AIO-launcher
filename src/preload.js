@@ -24,4 +24,10 @@ contextBridge.exposeInMainWorld('launcher', {
   saveGroups: (groups) => ipcRenderer.invoke('groups:save', groups),
   hide: (exePath) => ipcRenderer.invoke('game:hide', exePath),
   showInFolder: (exePath) => ipcRenderer.invoke('game:show-in-folder', exePath),
+  saveSetting: (name, on) => ipcRenderer.invoke('settings:switch', name, on),
+  getUpdateStatus: () => ipcRenderer.invoke('update:status'),
+  onUpdateStatus: (callback) => ipcRenderer.on('update:status', (_event, info) => callback(info)),
+  checkForUpdate: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  openReleasePage: () => ipcRenderer.invoke('update:page'),
 });

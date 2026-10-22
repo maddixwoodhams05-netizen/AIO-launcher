@@ -8,6 +8,8 @@ const library = require('./library');
 const { findArt } = require('./art');
 const { extractIcon } = require('./exeicon');
 const { startTracking } = require('./playtime');
+const { STORES } = require('./stores');
+const { createUpdater } = require('./updater');
 
 // Where the library is saved:
 // - the portable (zip) version keeps it in a folder next to itself, so it
@@ -30,6 +32,7 @@ const storage = require('./storage');
 let win;
 let lib;
 let tracker;
+let updater;
 
 // What each game's Play button should show.
 const LAUNCH_TIMEOUT_MS = 2 * 60 * 1000; // give up on "Launching..." after this
@@ -185,21 +188,36 @@ ipcMain.handle('game:launch', (_event, exePath) => {
     shell.openExternal(`steam://rungameid/${game.appId}`);
     return true;
   }
-  // Start the game from its own folder so it can find its files,
-  // and let it keep running if the launcher is closed.
+  if (game.launchUrl?.startsWith('shell:')) {
+    // Xbox app games are started by Windows itself.
+    spawn('explorer.exe', [game.launchUrl], { detached: true, stdio: 'ignore' }).unref();
+    return true;
+  }
+  if (game.launchUrl) {
+    // Games from Epic, EA and Ubisoft start through their store, which some
+    // of them need. If the store isn't there any more, start the EXE instead.
+    shell.openExternal(game.launchUrl).catch(() => startExe(game));
+    return true;
+  }
+  startExe(game);
+  return true;
+});
+
+// Start the game from its own folder so it can find its files,
+// and let it keep running if the launcher is closed.
+function startExe(game) {
   const child = spawn(game.exePath, [], {
     cwd: path.dirname(game.exePath),
     detached: true,
     stdio: 'ignore',
   });
   child.on('error', (err) => {
-    launching.delete(exePath);
+    launching.delete(game.exePath);
     sendStatus();
     dialog.showErrorBox('Could not start game', err.message);
   });
   child.unref();
-  return true;
-});
+}
 
 ipcMain.handle('games:status', status);
 
@@ -285,6 +303,8 @@ ipcMain.handle('game:uninstall-info', async (_event, exePath) => {
   if (game.folder === library.STEAM && game.appId) return { how: 'steam' };
   const uninstaller = await storage.findUninstaller(game.gameDir);
   if (uninstaller) return { how: 'uninstaller' };
+  // A store's games are never binned, or the store would think they are still there.
+  if (STORES[game.folder]) return { how: 'store', reason: `This game is from ${STORES[game.folder].name}. ${STORES[game.folder].uninstallHelp}` };
   const reason = storage.whyNotTrash(game, lib);
   if (reason) return { how: 'none', reason };
   return { how: 'trash', folder: game.gameDir };
@@ -313,7 +333,7 @@ ipcMain.handle('game:uninstall', async (_event, exePath) => {
   }
 
   // No uninstaller: move the folder to the Recycle Bin, so it can be put back.
-  if (storage.whyNotTrash(game, lib)) return { ok: false, message: "This game can't be removed from the launcher." };
+  if (STORES[game.folder] || storage.whyNotTrash(game, lib)) return { ok: false, message: "This game can't be removed from the launcher." };
   try {
     await shell.trashItem(game.gameDir);
   } catch (err) {
@@ -367,6 +387,46 @@ ipcMain.handle('settings:themes', (_event, themes) => {
   return lib;
 });
 
+// Simple on/off choices from Settings.
+const SWITCHES = ['storeTabs', 'storeLogos', 'autoUpdateCheck'];
+ipcMain.handle('settings:switch', (_event, name, on) => {
+  if (!SWITCHES.includes(name)) return lib;
+  lib.settings = { ...lib.settings, [name]: !!on };
+  library.save(lib);
+  return lib;
+});
+
+// ---------- Updates ----------
+
+ipcMain.handle('update:status', () => updater.status());
+ipcMain.handle('update:check', () => updater.check());
+ipcMain.handle('update:install', () => updater.install());
+ipcMain.handle('update:page', () => updater.openPage());
+
+function startUpdater() {
+  // Only the installed launcher can update itself. The portable one and
+  // "npm start" just say when there is a new version.
+  let autoUpdater = null;
+  if (app.isPackaged && installed) {
+    try {
+      autoUpdater = require('electron-updater').autoUpdater;
+    } catch {
+      autoUpdater = null;
+    }
+  }
+  updater = createUpdater({
+    current: app.getVersion(),
+    autoUpdater,
+    send: (info) => win && !win.isDestroyed() && win.webContents.send('update:status', info),
+    openUrl: (url) => shell.openExternal(url),
+  });
+  // Looks a few seconds after starting, so it doesn't slow the start down.
+  // The automatic tests start the check themselves.
+  if (lib.settings?.autoUpdateCheck !== false && !process.env.LAUNCHER_NO_UPDATE_CHECK) {
+    setTimeout(() => updater.check(), 5000);
+  }
+}
+
 ipcMain.handle('game:favourite', (_event, exePath) => {
   const game = lib.games.find((g) => g.exePath === exePath);
   if (game) {
@@ -398,6 +458,7 @@ ipcMain.handle('game:show-in-folder', (_event, exePath) => shell.showItemInFolde
 app.whenReady().then(() => {
   lib = library.load();
   createWindow();
+  startUpdater();
   tracker = startTracking(() => lib, {
     onPlaytime: () => {
       library.save(lib);

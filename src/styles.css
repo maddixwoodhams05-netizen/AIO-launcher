@@ -32,7 +32,7 @@ body {
   display: flex;
   flex-direction: column;
 }
-.sidebar nav { flex: 1; }
+.sidebar nav { flex: 1; min-height: 0; overflow-y: auto; }
 .sidebar h1 { font-size: 20px; margin: 0 0 16px; }
 .sidebar h2 { font-size: 12px; text-transform: uppercase; color: var(--muted); margin: 24px 0 8px; }
 .sidebar a {
@@ -85,6 +85,7 @@ input[type="search"] {
   padding: 0;
   overflow: hidden;
   background: var(--panel);
+  color: var(--text);
   border: 1px solid var(--raised);
   border-radius: 10px;
   text-align: left;
@@ -451,3 +452,48 @@ input[type="search"]:focus { outline: none; border-color: var(--accent); }
 }
 .theme-wrap:hover .theme-delete { display: block; }
 .theme-delete:hover { background: #dc2626; color: #fff; }
+
+/* Store logos and tabs */
+.store-badge {
+  position: absolute;
+  z-index: 1;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+.store-badge svg { width: 60%; height: 60%; fill: #fff; }
+.cover .store-badge { width: 34px; height: 34px; right: 10px; bottom: 10px; }
+.sidebar #store-list a { display: flex; justify-content: space-between; gap: 8px; }
+.store-link { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.store-link .store-badge, .legend-row .store-badge, .storage-top .store-badge {
+  position: static;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  box-shadow: none;
+}
+.storage-top .name-wrap { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+/* Settings */
+.settings + .settings { margin-top: 20px; }
+label.check { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; width: fit-content; cursor: pointer; }
+label.check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+
+/* "A new version is ready" bar */
+.update-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--accent) 22%, var(--panel));
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+}
+.update-bar span { flex: 1; }
+main:has(#view-game:not([hidden])) .update-bar { margin: 12px 16px 0; }

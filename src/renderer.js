@@ -7,26 +7,33 @@ let currentGame = null; // exePath of the game whose page is open
 let period = 'week';
 let listView = 'all'; // the list a game page was opened from, for the Back button
 let currentGroup = null; // id of the group being shown
+let currentStore = null; // which store's tab is being shown, e.g. 'Epic'
+let currentView = 'all'; // the page being shown
 let status = { launching: [], running: [], closing: [] }; // which games are starting, running or closing
 
 // ---------- Views ----------
 
-function showView(name, groupId = currentGroup) {
-  if (name === 'group') currentGroup = groupId;
-  document.querySelectorAll('[data-view]').forEach((a) =>
-    a.classList.toggle('active', a.dataset.view === name && (name !== 'group' || a.dataset.group === currentGroup))
-  );
+// id: which group or store, for those views.
+function showView(name, id) {
+  if (name === 'group') currentGroup = id ?? currentGroup;
+  if (name === 'store') currentStore = id ?? currentStore;
+  currentView = name;
+  const isShown = (a) =>
+    a.dataset.view === name &&
+    (name === 'group' ? a.dataset.group === currentGroup : name === 'store' ? a.dataset.store === currentStore : true);
+  document.querySelectorAll('[data-view]').forEach((a) => a.classList.toggle('active', isShown(a)));
   document.querySelectorAll('main > section').forEach((s) => (s.hidden = s.id !== `view-${name}`));
   if (name !== 'game') currentGame = null;
-  if (['all', 'favourites', 'recent', 'group'].includes(name)) listView = name;
+  if (['all', 'favourites', 'recent', 'group', 'store'].includes(name)) listView = name;
   if (name === 'group') renderGroupPage();
+  if (name === 'store') renderStorePage();
   if (name === 'storage') scanStorage(false);
   document.querySelector('main').scrollTop = 0;
 }
 
 document.querySelector('.sidebar').addEventListener('click', (e) => {
   const link = e.target.closest('[data-view]');
-  if (link) showView(link.dataset.view, link.dataset.group);
+  if (link) showView(link.dataset.view, link.dataset.group || link.dataset.store);
 });
 
 // ---------- Art ----------
@@ -55,7 +62,8 @@ async function setArt(box, game) {
   const key = `${src}`;
   if (box.dataset.src === key) return;
   box.dataset.src = key;
-  box.replaceChildren();
+  // The store logo in the corner stays put when the art changes.
+  box.replaceChildren(...box.querySelectorAll(':scope > .store-badge'));
   box.className = box.className.replace(/\s*(fill|fit|no-art)/g, '');
 
   if (!src) return box.classList.add('no-art');
@@ -75,6 +83,51 @@ function img(src, className = '') {
   el.className = className;
   el.draggable = false;
   return el;
+}
+
+// ---------- Stores ----------
+
+// Where each game came from. Games from folders the user added are "Other".
+const STORES = {
+  Steam: { name: 'Steam', ring: '#66c0f4' },
+  Epic: { name: 'Epic Games', ring: '#a3a3a3' },
+  GOG: { name: 'GOG', ring: '#a855f7' },
+  EA: { name: 'EA app', ring: '#ef4444' },
+  Ubisoft: { name: 'Ubisoft Connect', ring: '#2563eb' },
+  Xbox: { name: 'Xbox', ring: '#22c55e' },
+  Other: { name: 'Other', ring: '#eab308' },
+};
+const storeOf = (game) => (STORE_LOGOS[game.folder] ? game.folder : 'Other');
+const setting = (name) => library.settings?.[name] !== false; // on unless switched off
+
+// The store's logo, as a small round badge.
+function storeLogo(store) {
+  const logo = STORE_LOGOS[store];
+  const badge = document.createElement('span');
+  badge.className = 'store-badge';
+  badge.title = STORES[store].name;
+  badge.style.background = logo.color;
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  const shape = document.createElementNS(ns, 'path');
+  shape.setAttribute('d', logo.path);
+  svg.append(shape);
+  badge.append(svg);
+  return badge;
+}
+
+// Puts the store's logo in the corner of a game's art (if switched on).
+function setBadge(box, game) {
+  const store = storeOf(game);
+  const old = box.querySelector(':scope > .store-badge');
+  const wanted = setting('storeLogos') && store !== 'Other' ? store : null;
+  if ((old?.dataset.store || null) === wanted) return;
+  old?.remove();
+  if (!wanted) return;
+  const badge = storeLogo(wanted);
+  badge.dataset.store = wanted;
+  box.append(badge);
 }
 
 // ---------- Game grid ----------
@@ -131,6 +184,7 @@ function renderGrid(grid, allGames, note) {
     sub.textContent = note ? note(game) : '';
     sub.hidden = !note;
     setArt(tile.querySelector('.art'), game);
+    setBadge(tile.querySelector('.art'), game);
     shown.push(tile);
   }
   grid.replaceChildren(...shown);
@@ -150,6 +204,46 @@ function renderGames() {
 
   renderGroupList();
   renderGroupPage();
+  renderStoreList();
+  renderStorePage();
+}
+
+// ---------- Store tabs ----------
+
+// Stores that have games, in a fixed order. "Other" only shows next to a real store.
+function storesWithGames() {
+  const stores = Object.keys(STORES).filter((store) => library.games.some((g) => storeOf(g) === store));
+  return stores.some((s) => s !== 'Other') ? stores : [];
+}
+
+function renderStoreList() {
+  const stores = setting('storeTabs') ? storesWithGames() : [];
+  $('stores-heading').hidden = stores.length === 0;
+  $('store-list').replaceChildren(
+    ...stores.map((store) => {
+      const link = document.createElement('a');
+      link.dataset.view = 'store';
+      link.dataset.store = store;
+      link.classList.toggle('active', currentView === 'store' && currentStore === store);
+      const name = document.createElement('span');
+      name.className = 'store-link';
+      if (store !== 'Other') name.append(storeLogo(store));
+      name.append(STORES[store].name);
+      const count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = library.games.filter((g) => storeOf(g) === store).length;
+      link.append(name, count);
+      return link;
+    })
+  );
+}
+
+function renderStorePage() {
+  if (listView !== 'store' || $('view-store').hidden) return;
+  // The tab went away (switched off in Settings, or its last game was removed).
+  if (!setting('storeTabs') || !storesWithGames().includes(currentStore)) return showView('all');
+  $('store-name').textContent = STORES[currentStore].name;
+  renderGrid($('grid-store'), library.games.filter((g) => storeOf(g) === currentStore));
 }
 
 // "just now", "5 minutes ago", "yesterday", "3 days ago", or a date.
@@ -294,6 +388,7 @@ async function renderGamePage() {
   $('game-size').textContent = game.size ? formatSize(game.size) : 'Not worked out yet';
   $('game-uninstall').textContent = game.size ? `Uninstall (${formatSize(game.size)})` : 'Uninstall';
   setArt($('game-cover'), game);
+  setBadge($('game-cover'), game);
 
   // Banner: Steam's wide hero art, or the best art we have, blurred.
   const heroArt = document.querySelector('.hero-art');
@@ -423,7 +518,7 @@ function renderGroupList() {
       const link = document.createElement('a');
       link.dataset.view = 'group';
       link.dataset.group = group.id;
-      link.classList.toggle('active', listView === 'group' && currentGroup === group.id && !currentGame);
+      link.classList.toggle('active', currentView === 'group' && currentGroup === group.id);
       const name = document.createElement('span');
       name.textContent = group.name;
       const count = document.createElement('span');
@@ -610,45 +705,69 @@ async function scanStorage(recalculate) {
 
 $('storage-recalc').addEventListener('click', () => scanStorage(true));
 
-let ringMode = 'overview'; // 'overview' (whole drives) or 'games' (one slice per game)
+// The ring has three levels: whole drives → Games split by store → one store's games.
+let ringMode = 'overview'; // 'overview', 'games' or 'store'
+let ringStore = null; // the store shown in 'store' mode
 
 // Colours for game slices; anything past these is grouped as "Other games".
 const SLICE_COLORS = ['#3b82f6', '#a855f7', '#ec4899', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#6366f1'];
 
+// ‹ goes up one level.
 $('ring-back').addEventListener('click', () => {
-  ringMode = 'overview';
+  ringMode = ringMode === 'store' ? 'games' : 'overview';
   renderStorage();
 });
 
 function renderStorage() {
-  const games = [...library.games].sort((a, b) => (b.size || 0) - (a.size || 0));
-  const gamesSize = games.reduce((sum, g) => sum + (g.size || 0), 0);
+  const bySize = (a, b) => (b.size || 0) - (a.size || 0);
+  const sizeOf = (list) => list.reduce((sum, g) => sum + (g.size || 0), 0);
+  const games = [...library.games].sort(bySize);
+  const gamesSize = sizeOf(games);
   const total = driveList.reduce((sum, d) => sum + d.total, 0);
   const free = driveList.reduce((sum, d) => sum + d.free, 0);
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (ringMode === 'store' && !games.some((g) => storeOf(g) === ringStore)) ringMode = 'games';
 
   let slices;
+  let listed = games; // the games in the list under the ring
+  let ringTotal = gamesSize;
   if (ringMode === 'overview') {
     slices = [
-      { label: 'Games', size: Math.min(gamesSize, total - free), color: css('--accent'), open: true },
+      { label: 'Games', size: Math.min(gamesSize, total - free), color: css('--accent'), open: 'games' },
       { label: 'Everything else', size: Math.max(total - free - gamesSize, 0), color: css('--muted') },
       { label: 'Free space', size: free, color: css('--raised-2') },
     ];
-    $('ring-hint').hidden = false;
+    ringTotal = total;
     $('ring-title').textContent = driveList.length > 1 ? `All drives (${driveList.map((d) => d.root).join(' ')})` : `Drive ${driveList[0]?.root || ''}`;
+    $('ring-hint').textContent = 'Click Games on the ring or in the list to see each store.';
     setRingCentre(formatSize(slices[0].size), `used by games, of ${formatSize(total)}`);
+  } else if (ringMode === 'games') {
+    // One slice per store, biggest first. Games from your own folders are "Other".
+    slices = Object.keys(STORES)
+      .map((store) => {
+        const inStore = games.filter((g) => storeOf(g) === store);
+        return { label: `${STORES[store].name} (${inStore.length})`, size: sizeOf(inStore), color: STORES[store].ring, store, count: inStore.length };
+      })
+      .filter((slice) => slice.count > 0)
+      .sort((a, b) => b.size - a.size);
+    slices.forEach((slice) => (slice.open = 'store'));
+    $('ring-title').textContent = `Games (${games.length})`;
+    $('ring-hint').textContent = 'Click a store to see its games.';
+    setRingCentre(formatSize(gamesSize), 'used by games');
   } else {
-    const top = games.filter((g) => g.size).slice(0, SLICE_COLORS.length);
-    const rest = games.slice(top.length).reduce((sum, g) => sum + (g.size || 0), 0);
+    listed = games.filter((g) => storeOf(g) === ringStore);
+    const top = listed.filter((g) => g.size).slice(0, SLICE_COLORS.length);
+    const rest = sizeOf(listed.slice(top.length));
     slices = top.map((g, i) => ({ label: g.name, size: g.size, color: SLICE_COLORS[i], game: g }));
     if (rest) slices.push({ label: 'Other games', size: rest, color: css('--muted') });
-    $('ring-hint').hidden = true;
-    $('ring-title').textContent = `Games (${games.length})`;
-    setRingCentre(formatSize(gamesSize), 'used by games');
+    ringTotal = sizeOf(listed);
+    $('ring-title').textContent = `${STORES[ringStore].name} (${listed.length})`;
+    $('ring-hint').textContent = 'Click a game to find it in the list below.';
+    setRingCentre(formatSize(ringTotal), `used by ${STORES[ringStore].name} games`);
   }
   $('ring-back').hidden = ringMode === 'overview';
-  $('storage-list').hidden = ringMode === 'overview';
-  drawRing(slices, ringMode === 'overview' ? total : gamesSize);
+  $('ring-back').textContent = ringMode === 'store' ? '‹ All games' : '‹ All storage';
+  drawRing(slices, ringTotal);
 
   $('ring-legend').replaceChildren(
     ...slices.map((slice) => {
@@ -664,7 +783,9 @@ function renderStorage() {
       const size = document.createElement('span');
       size.className = 'muted';
       size.textContent = formatSize(slice.size);
-      row.append(dot, label, size);
+      row.append(dot);
+      if (slice.store && slice.store !== 'Other') row.append(storeLogo(slice.store));
+      row.append(label, size);
       row.addEventListener('click', () => clickSlice(slice));
       return row;
     })
@@ -678,7 +799,9 @@ function renderStorage() {
     })
   );
 
-  if (ringMode === 'games') renderStorageList(games);
+  // The list of games, with Uninstall buttons, is there at every level.
+  $('storage-list').hidden = false;
+  renderStorageList(listed);
 }
 
 function setRingCentre(big, small) {
@@ -726,7 +849,8 @@ function drawRing(slices, total) {
 
 function clickSlice(slice) {
   if (slice.open) {
-    ringMode = 'games';
+    ringMode = slice.open;
+    ringStore = slice.store || null;
     renderStorage();
   } else if (slice.game) {
     // Scroll to the game in the list below and make it flash.
@@ -759,7 +883,11 @@ function renderStorageList(games) {
       name.addEventListener('click', () => openGame(game));
       const size = document.createElement('span');
       size.textContent = game.size ? formatSize(game.size) : '...';
-      top.append(name, size);
+      const nameWrap = document.createElement('span');
+      nameWrap.className = 'name-wrap';
+      if (storeOf(game) !== 'Other') nameWrap.append(storeLogo(storeOf(game)));
+      nameWrap.append(name);
+      top.append(nameWrap, size);
       const bar = document.createElement('div');
       bar.className = 'size-bar';
       const fill = document.createElement('div');
@@ -802,6 +930,9 @@ async function uninstallGame(game) {
     uninstaller: `The game's own uninstaller will open. Follow its steps to finish.${size}`,
     trash: `This game has no uninstaller, so its folder will be moved to the Recycle Bin:\n${info.folder}\n\nYou can get it back from the Recycle Bin if you change your mind.${size}`,
   };
+  if (info.how === 'store') {
+    return openModal(`Uninstall ${game.name} from its store`, textBlock(info.reason), 'OK', true);
+  }
   if (info.how === 'none') {
     return openModal(
       `Can't uninstall ${game.name} from here`,
@@ -959,18 +1090,73 @@ async function saveColors(colors) {
 
 $('reset-colors').addEventListener('click', () => saveColors(THEMES.Default));
 
+// ---------- On/off settings ----------
+
+// Tick boxes in Settings with id "set-<name>". They are all on unless switched off.
+for (const box of document.querySelectorAll('input[id^="set-"]')) {
+  box.addEventListener('change', async () => update(await window.launcher.saveSetting(box.id.slice(4), box.checked)));
+}
+function renderSwitches() {
+  for (const box of document.querySelectorAll('input[id^="set-"]')) box.checked = setting(box.id.slice(4));
+}
+
+// ---------- Updates ----------
+
+let updateInfo = { state: 'idle' };
+let updateHidden = false; // "Later" hides the bar until the next start
+
+function renderUpdate(info = updateInfo) {
+  updateInfo = info;
+  $('app-version').textContent = info.current || '';
+  const pct = info.percent ? ` ${Math.floor(info.percent)}%` : '';
+  $('update-status').textContent = {
+    checking: 'Checking for updates...',
+    none: "You're up to date.",
+    available: `Version ${info.version} is out.`,
+    downloading: `Downloading version ${info.version}...${pct}`,
+    installing: 'Restarting to update...',
+    error: `Couldn't check for updates: ${info.message || 'no internet?'}`,
+  }[info.state] || '';
+  $('update-check').disabled = ['checking', 'downloading', 'installing'].includes(info.state);
+
+  const bar = $('update-bar');
+  bar.hidden = updateHidden || !['available', 'downloading', 'installing'].includes(info.state);
+  if (info.state === 'available') {
+    $('update-text').textContent = info.canInstall
+      ? `Version ${info.version} of the launcher is out. Update in one click; your library is kept.`
+      : `Version ${info.version} of the launcher is out. Download it from GitHub; your library is kept.`;
+  } else {
+    $('update-text').textContent = $('update-status').textContent;
+  }
+  $('update-go').textContent = info.canInstall ? 'Update now' : 'Download';
+  $('update-go').disabled = info.state !== 'available';
+  $('update-later').hidden = info.state !== 'available';
+}
+
+$('update-check').addEventListener('click', () => window.launcher.checkForUpdate());
+$('update-go').addEventListener('click', () => window.launcher.installUpdate());
+$('update-notes').addEventListener('click', () => window.launcher.openReleasePage());
+$('update-later').addEventListener('click', () => {
+  updateHidden = true;
+  renderUpdate();
+});
+window.launcher.onUpdateStatus(renderUpdate);
+
 // ---------- Folders ----------
 
 function renderFolders() {
   const list = $('folder-list');
   list.replaceChildren();
-  const steamCount = library.games.filter((g) => g.folder === 'Steam').length;
-  if (steamCount > 0) {
+  let storeCount = 0;
+  for (const store of Object.keys(STORE_LOGOS)) {
+    const count = library.games.filter((g) => g.folder === store).length;
+    if (!count) continue;
+    storeCount += count;
     const li = document.createElement('li');
-    li.textContent = `Steam, found automatically  (${steamCount} game${steamCount === 1 ? '' : 's'})`;
+    li.textContent = `${STORES[store].name}, found automatically  (${count} game${count === 1 ? '' : 's'})`;
     list.append(li);
   }
-  if (library.folders.length === 0 && steamCount === 0) {
+  if (library.folders.length === 0 && storeCount === 0) {
     const li = document.createElement('li');
     li.className = 'muted';
     li.textContent = 'No folders yet.';
@@ -1026,6 +1212,7 @@ function update(newLibrary) {
   renderGames();
   renderFolders();
   renderSettings();
+  renderSwitches();
   if (!$('view-storage').hidden) renderStorage();
   if (currentGame) renderGamePage();
 }
@@ -1043,6 +1230,7 @@ window.launcher.onStatus(updateStatus);
   // Show the saved library straight away, then check the folders for new games.
   update(await window.launcher.getLibrary());
   updateStatus(await window.launcher.getStatus());
+  renderUpdate(await window.launcher.getUpdateStatus());
   await rescan();
   document.body.dataset.ready = '1'; // lets the automatic tests know start-up is done
 })();
