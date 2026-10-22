@@ -17,5 +17,5 @@ if errorlevel 1 (
 )
 explorer dist
 echo.
-echo Done! Run "Game Launcher Setup" to install or update, or unzip the portable zip anywhere.
+echo Done! Run "Maio Launcher Setup" to install or update, or unzip the portable zip anywhere.
 pause
