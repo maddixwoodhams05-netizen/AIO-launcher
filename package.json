@@ -1,6 +1,6 @@
 {
   "name": "game-launcher",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "An all-in-one launcher for the games on your PC",
   "main": "src/main.js",
   "scripts": {
